@@ -1,0 +1,34 @@
+{
+  "name": "workflow",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc"
+  },
+  "keywords": [
+    "workflow",
+    "automation",
+    "tasks"
+  ],
+  "author": "El jaouhary Issam",
+  "license": "ISC",
+  "repositories": {
+    "type": "git",
+    "url": "https://github.com/isel-jao/workflow.git"
+  },
+  "bugs": {
+    "url": "https://github.com/isel-jao/workflow/issues"
+  },
+  "homepage": "https://github.com/isel-jao/workflow#readme",
+  "packageManager": "pnpm@10.18.0",
+  "dependencies": {
+    "ioredis": "^5.8.2",
+    "rxjs": "^7.8.2"
+  },
+  "devDependencies": {
+    "@types/node": "^24.9.2",
+    "typescript": "^5.9.3"
+  }
+}
