@@ -121,7 +121,7 @@ export class WorkflowEngine implements IWorkflowEngine {
     const outputs: Record<string, Subject<TNodeEvent>> = {};
     const config = nodeDef.data.config;
 
-    const nodeFactory = this.registry.getNodeFactory(nodeDef.data.name);
+    const nodeFactory = this.registry.getFactory(nodeDef.data.name);
 
     // prepare inputs
     const incomingConnections = graph.connections.filter(
