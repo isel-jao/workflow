@@ -1,13 +1,13 @@
-import { functionA, functionB } from "./moduleA";
-import { ClassC } from "./moduleB";
+export { NodeRegistry, registry } from "./node-registry";
+export { BaseNode, TBaseNodeOptions } from "./base-node";
 
-export { functionA, functionB } from "./moduleA";
-export { ClassC } from "./moduleB";
-export type { MyType } from "./types";
+export type {
+  TNode,
+  TNodeData,
+  TConnection,
+  TGraph,
+  WorkflowEvent,
+  TExternalResources,
+} from "./types";
 
-// Default export (optional)
-export default {
-  functionA,
-  functionB,
-  ClassC,
-};
+export { WorkflowEngine } from "./engine";
