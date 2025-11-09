@@ -2,6 +2,7 @@ import { delay, filter, map, Observable, Subject } from "rxjs";
 import { NodeRegistry } from "./node-registry";
 import { TExternalResources, TGraph, TNodeEvent } from "./types";
 import { BaseNode } from "./base-node";
+import { resolveTemplateExpressions } from "./utils/resolve-template-expression";
 
 type WorkflowEngineOptions = {
   externalResources: TExternalResources;
@@ -34,6 +35,8 @@ type TWorkflowResource = {
   error?: string;
   nodeInstances: Array<BaseNode>;
   nodesSubjects: Array<Subject<TNodeEvent>>;
+  variables: TGraph["variables"];
+  secrets: TGraph["secrets"];
   pausedEvents: Array<{
     nodeId: string;
     outputId: string;
@@ -85,6 +88,8 @@ export class WorkflowEngine implements IWorkflowEngine {
           event: TNodeEvent;
           time: number;
         }>(),
+        variables: graph.variables,
+        secrets: graph.secrets,
         pausedEvents: [],
       } as TWorkflowResource,
       {
@@ -124,8 +129,7 @@ export class WorkflowEngine implements IWorkflowEngine {
         resources.status = "started";
       } else {
         const errorMessages = errors.map((e) => e.error).join("; ");
-        resources.status = "error";
-        Object.assign(resources, { error: errorMessages });
+        Object.assign(resources, { error: errorMessages, status: "error" });
       }
     } catch (error) {
       let errorMessage = "Unknown error during node setup.";
@@ -147,7 +151,10 @@ export class WorkflowEngine implements IWorkflowEngine {
     }
     const inputs: Record<string, Observable<TNodeEvent>> = {};
     const outputs: Record<string, Subject<TNodeEvent>> = {};
-    const config = nodeDef.data.config;
+    const config = resolveTemplateExpressions(nodeDef.data.config, {
+      variables: resources.variables || {},
+      secrets: resources.secrets || {},
+    });
 
     const nodeFactory = this.registry.getFactory(nodeDef.data.name);
 

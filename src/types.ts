@@ -24,6 +24,8 @@ export type TGraph = {
   id: string;
   name: string;
   description?: string;
+  variables?: Record<string, unknown>;
+  secrets?: Record<string, string>;
   nodes: TNode[];
   connections: TConnection[];
 };
