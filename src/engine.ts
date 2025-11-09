@@ -31,6 +31,7 @@ type TWorkflowResource = {
     event: TNodeEvent;
     time: number;
   }>;
+  error?: string;
   nodeInstances: Array<BaseNode>;
   nodesSubjects: Array<Subject<TNodeEvent>>;
   pausedEvents: Array<{
@@ -73,24 +74,39 @@ export class WorkflowEngine implements IWorkflowEngine {
   }
 
   public run(graph: TGraph): void {
-    const workflowResource: TWorkflowResource = {
-      status: "starting",
-      nodeInstances: [],
-      nodesSubjects: [],
-      subject: new Subject<{
-        nodeId: string;
-        outputId: string;
-        event: TNodeEvent;
-        time: number;
-      }>(),
-      pausedEvents: [],
-    };
+    const workflowResource: TWorkflowResource = new Proxy(
+      {
+        status: "starting",
+        nodeInstances: [],
+        nodesSubjects: [],
+        subject: new Subject<{
+          nodeId: string;
+          outputId: string;
+          event: TNodeEvent;
+          time: number;
+        }>(),
+        pausedEvents: [],
+      } as TWorkflowResource,
+      {
+        set: (target, prop, value) => {
+          if (prop === "status") {
+            const event: WorkflowStatusEvent = {
+              graphId: graph.id,
+              time: Date.now(),
+              status: value as TGraphStatus,
+            };
+            if (value === "error") {
+              event.error = target.error || "Workflow entered error state.";
+            }
+            this.workflowStatusSubject.next(event);
+          }
+          // Set the property on the target object
+          target[prop as keyof TWorkflowResource] = value;
+          return true;
+        },
+      }
+    );
     this.workflowResources.set(graph.id, workflowResource);
-    this.workflowStatusSubject.next({
-      graphId: graph.id,
-      time: Date.now(),
-      status: "starting",
-    });
     this.setupNodes(graph, workflowResource);
   }
 
@@ -106,33 +122,17 @@ export class WorkflowEngine implements IWorkflowEngine {
         // run nodes
         resources.nodeInstances.forEach((node) => node.run());
         resources.status = "started";
-        this.workflowStatusSubject.next({
-          graphId: graph.id,
-          time: Date.now(),
-          status: "started",
-        });
       } else {
         const errorMessages = errors.map((e) => e.error).join("; ");
         resources.status = "error";
-        this.workflowStatusSubject.next({
-          graphId: graph.id,
-          time: Date.now(),
-          status: "error",
-          error: errorMessages,
-        });
+        Object.assign(resources, { error: errorMessages });
       }
     } catch (error) {
-      resources.status = "error";
       let errorMessage = "Unknown error during node setup.";
       if (error instanceof Error) {
         errorMessage = error.message;
       }
-      this.workflowStatusSubject.next({
-        graphId: graph.id,
-        time: Date.now(),
-        status: "error",
-        error: errorMessage,
-      });
+      Object.assign(resources, { error: errorMessage, status: "error" });
     }
   }
 
@@ -222,37 +222,17 @@ export class WorkflowEngine implements IWorkflowEngine {
   }
 
   public stop(graphId: string): void {
-    const resources = this.workflowResources.get(graphId);
-    if (!resources) {
-      this.workflowStatusSubject.next({
-        graphId,
-        time: Date.now(),
-        status: "error",
-        error: `Graph with ID ${graphId} is not running.`,
-      });
-      return;
-    }
+    const resources = this.getResource(graphId);
+    if (!resources) return;
     this.cleanupGraphResources(graphId).then(() => {
-      this.workflowStatusSubject.next({
-        graphId,
-        time: Date.now(),
-        status: "stopped",
-      });
+      resources.status = "stopped";
     });
   }
 
   public pinNode(options: TPinNodeOptions): void {
     const { graphId, nodeId, data } = options;
-    const resources = this.workflowResources.get(graphId);
-    if (!resources) {
-      this.workflowStatusSubject.next({
-        graphId,
-        time: Date.now(),
-        status: "error",
-        error: `Graph with ID ${graphId} is not running.`,
-      });
-      return;
-    }
+    const resources = this.getResource(graphId);
+    if (!resources) return;
     const nodeInstance = resources.nodeInstances.find(
       (node) => node["id"] === nodeId
     );
@@ -270,16 +250,8 @@ export class WorkflowEngine implements IWorkflowEngine {
 
   public unpinNode(options: TUnpinNodeOptions): void {
     const { graphId, nodeId } = options;
-    const resources = this.workflowResources.get(graphId);
-    if (!resources) {
-      this.workflowStatusSubject.next({
-        graphId,
-        time: Date.now(),
-        status: "error",
-        error: `Graph with ID ${graphId} is not running.`,
-      });
-      return;
-    }
+    const resources = this.getResource(graphId);
+    if (!resources) return;
     const nodeInstance = resources.nodeInstances.find(
       (node) => node["id"] === nodeId
     );
@@ -328,43 +300,18 @@ export class WorkflowEngine implements IWorkflowEngine {
   }
 
   public pause(graphId: string): void {
-    const resources = this.workflowResources.get(graphId);
-    if (!resources) {
-      this.workflowStatusSubject.next({
-        graphId,
-        time: Date.now(),
-        status: "error",
-        error: `Graph with ID ${graphId} is not running.`,
-      });
-      return;
-    }
+    const resources = this.getResource(graphId);
+    if (!resources) return;
     resources.nodeInstances.forEach((node) => node.pause());
     resources.status = "paused";
-    this.workflowStatusSubject.next({
-      graphId,
-      time: Date.now(),
-      status: "paused",
-    });
   }
 
   public resume(graphId: string): void {
-    const resources = this.workflowResources.get(graphId);
-    if (!resources) {
-      this.workflowStatusSubject.next({
-        graphId,
-        time: Date.now(),
-        status: "error",
-        error: `Graph with ID ${graphId} is not running.`,
-      });
-      return;
-    }
+    const resources = this.getResource(graphId);
+    if (!resources) return;
+
     resources.nodeInstances.forEach((node) => node.resume());
     resources.status = "resumed";
-    this.workflowStatusSubject.next({
-      graphId,
-      time: Date.now(),
-      status: "resumed",
-    });
     // Process paused events
     resources.pausedEvents.forEach((pausedEvent) => {
       resources.subject.next({
@@ -376,5 +323,19 @@ export class WorkflowEngine implements IWorkflowEngine {
     });
     // Clear paused events
     resources.pausedEvents = [];
+  }
+
+  private getResource(graphId: string): TWorkflowResource | undefined {
+    const resources = this.workflowResources.get(graphId);
+    if (!resources) {
+      this.workflowStatusSubject.next({
+        graphId,
+        time: Date.now(),
+        status: "error",
+        error: `Graph with ID ${graphId} is not running.`,
+      });
+      return undefined;
+    }
+    return resources;
   }
 }
