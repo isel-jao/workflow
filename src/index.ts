@@ -10,4 +10,4 @@ export type {
   TExternalResources,
 } from "./types";
 
-export { WorkflowEngine } from "./engine";
+export { WorkflowEngine, IWorkflowEngine } from "./engine";

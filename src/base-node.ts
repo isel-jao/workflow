@@ -79,11 +79,11 @@ export abstract class BaseNode<
     // Additional cleanup logic if needed
   }
 
-  public async pause(): Promise<void> {
-    throw new Error("Method not implemented.");
+  public pause(): void {
+    //  implement pause logic for trigger nodes
   }
 
-  public async resume(): Promise<void> {
-    throw new Error("Method not implemented.");
+  public resume(): void {
+    //  implement resume logic for trigger nodes
   }
 }
