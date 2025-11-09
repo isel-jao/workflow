@@ -1,8 +1,3 @@
-// export type PinOptions = {
-//   outputId?: string;
-//   data?: unknown;
-// };
-
 export type TNodeData = {
   name: string;
   label: string;

@@ -29,9 +29,22 @@ type TWorkflowResource = {
   nodesSubjects: Array<Subject<TNodeEvent>>;
 };
 
+type TPinNodeOptions = {
+  graphId: string;
+  nodeId: string;
+  data?: unknown;
+};
+
+type TUnpinNodeOptions = {
+  graphId: string;
+  nodeId: string;
+};
+
 export interface IWorkflowEngine {
   run(graph: TGraph): void;
   stop(graphId: string): void;
+  pinNode(options: TPinNodeOptions): void;
+  unpinNode(options: TUnpinNodeOptions): void;
 }
 export class WorkflowEngine implements IWorkflowEngine {
   private externalResources: TExternalResources;
@@ -201,6 +214,60 @@ export class WorkflowEngine implements IWorkflowEngine {
         status: "stopped",
       });
     });
+  }
+
+  public pinNode(options: TPinNodeOptions): void {
+    const { graphId, nodeId, data } = options;
+    const resources = this.workflowResources.get(graphId);
+    if (!resources) {
+      this.workflowStatusSubject.next({
+        graphId,
+        time: Date.now(),
+        status: "error",
+        error: `Graph with ID ${graphId} is not running.`,
+      });
+      return;
+    }
+    const nodeInstance = resources.nodeInstances.find(
+      (node) => node["id"] === nodeId
+    );
+    if (!nodeInstance) {
+      this.workflowStatusSubject.next({
+        graphId,
+        time: Date.now(),
+        status: "error",
+        error: `Node with ID ${nodeId} not found in graph ${graphId}.`,
+      });
+      return;
+    }
+    nodeInstance.pin(data);
+  }
+
+  public unpinNode(options: TUnpinNodeOptions): void {
+    const { graphId, nodeId } = options;
+    const resources = this.workflowResources.get(graphId);
+    if (!resources) {
+      this.workflowStatusSubject.next({
+        graphId,
+        time: Date.now(),
+        status: "error",
+        error: `Graph with ID ${graphId} is not running.`,
+      });
+      return;
+    }
+    const nodeInstance = resources.nodeInstances.find(
+      (node) => node["id"] === nodeId
+    );
+    if (!nodeInstance) {
+      this.workflowStatusSubject.next({
+        graphId,
+        time: Date.now(),
+        status: "error",
+        error: `Node with ID ${nodeId} not found in graph ${graphId}.`,
+      });
+      return;
+    }
+    nodeInstance.unpin();
   }
 
   private async cleanupGraphResources(graphId: string): Promise<void> {

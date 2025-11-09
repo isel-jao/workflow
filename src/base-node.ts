@@ -20,6 +20,8 @@ export abstract class BaseNode<
   protected outputs: Record<string, Subject<TNodeEvent>>;
   protected engineContext: TEngineContext;
   protected subscriptions: Array<Subscription> = [];
+  protected isPinned: boolean = false;
+  protected lastResult: unknown = null;
 
   constructor(options: TBaseNodeOptions<T>) {
     this.id = options.id;
@@ -39,6 +41,10 @@ export abstract class BaseNode<
     const subscription = inputSubject?.subscribe({
       next: async (data) => {
         try {
+          if (this.isPinned) {
+            this.outputs["success"]?.next(this.lastResult);
+            return;
+          }
           const result = await this.handleTick(data);
           this.outputs["success"]?.next(result);
 
@@ -54,6 +60,17 @@ export abstract class BaseNode<
   protected async handleTick(data: unknown): Promise<unknown> {
     // to be overridden by subclasses
     return data;
+  }
+
+  public pin(data?: unknown): void {
+    this.isPinned = true;
+    if (data !== undefined) {
+      this.lastResult = data;
+    }
+  }
+
+  public unpin(): void {
+    this.isPinned = false;
   }
 
   public async stop(): Promise<void> {
